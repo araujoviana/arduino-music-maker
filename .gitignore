@@ -1,0 +1,77 @@
+# Ignore build outputs
+/bin/
+/obj/
+
+# Ignore package folders (if any - less common in modern .NET with PackageReferences)
+/packages/
+
+# Ignore Visual Studio files and folders
+.vs/
+*.suo
+*.user
+*.userprefs
+*.vspscc
+*.vssscc
+*_i.psess
+*_t.psess
+*.opendocument.odt
+*.sln.docstates
+*.Build.ps1
+*.ReSharper.ExternalAnnotations*
+*.DotSettings.user
+
+# Ignore Rider IDE files and folders
+.idea/
+*.iml
+
+# Ignore temporary files and logs
+*.tmp
+*.log
+*.饞饞
+*.[Pp]db
+*$tf/
+*.lnk
+/TestResults/
+/_PublishedWebsites/
+/_PublishedApplications/
+/_ResolvedExternalCodeCheckouts/
+/ComponentArt/
+
+# Ignore executable outputs (already covered by /bin/ but just in case)
+*.exe
+*.dll
+
+# Ignore F# specific temp files (if any - less common, but good to include)
+*.fsproj.lock.json
+
+# Ignore any user-specific settings or environment files (if you create any)
+# example: .env files if you are using environment variables
+#.env
+# my-local-settings.config
+
+# Optional: Ignore documentation build outputs if you generate documentation
+#/docs/_build/
+#/docs/_site/
+
+# Optional: Ignore test result files (if you generate specific test result files)
+#*.trx
+#*.coverage
+#*.coveragexml
+#*.opencover.xml
+
+# OS Specific - if you are developing cross-platform but want to ignore OS specific files
+
+# macOS
+.DS_Store
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux - less common but for completeness
+*~
+*.swp
+.fuse_hidden*
+.directory
