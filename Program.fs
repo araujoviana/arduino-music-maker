@@ -4,8 +4,6 @@ open System.IO.Ports
 open System.Threading
 open Spectre.Console
 
-type Frequency = int
-
 // TODO add boundaries
 let getNoteFrequency position =
     let baseFrequency: float = 440.0 // A4
@@ -14,6 +12,15 @@ let getNoteFrequency position =
     let frequency = baseFrequency * 2.0 ** ((float (position - basePosition)) / 12.0)
     System.Math.Round(frequency) |> int
 
+
+let callArduino (serialPort: SerialPort) (note: int) (durationMs: int) = // Modified to take SerialPort object
+    try
+        AnsiConsole.WriteLine($"Sending note: {note} for {durationMs}ms")
+        serialPort.WriteLine(string note)
+        Thread.Sleep(durationMs)
+        AnsiConsole.WriteLine("Note sent successfully.")
+    with ex ->
+        AnsiConsole.MarkupLine($"[red]Error sending note: {ex.Message}[/]")
 
 
 // TODO Rename
