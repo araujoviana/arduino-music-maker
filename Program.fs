@@ -4,6 +4,17 @@ open System.IO.Ports
 open System.Threading
 open Spectre.Console
 
+type Frequency = int
+
+// TODO add boundaries
+let getNoteFrequency position =
+    let baseFrequency: float = 440.0 // A4
+    let basePosition: int = 49
+
+    let frequency = baseFrequency * 2.0 ** ((float (position - basePosition)) / 12.0)
+    System.Math.Round(frequency) |> int
+
+
 
 // TODO Rename
 // TODO Make it generic instead of only returning a string
