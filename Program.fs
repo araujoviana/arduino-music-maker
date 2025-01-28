@@ -1,4 +1,6 @@
-﻿open System
+﻿// TODO Convert docstrings to XML documentation
+
+open System
 open System.IO
 open System.IO.Ports
 open System.Threading
@@ -6,26 +8,49 @@ open Spectre.Console
 
 // TODO add boundaries
 let getNoteFrequency position =
-    let baseFrequency: float = 440.0 // A4
-    let basePosition: int = 49
+    let baseFrequency: float = 440.0 // frequency for the base note (A4)
+    let basePosition: int = 49 // MIDI position for the base note
 
-    let frequency = baseFrequency * 2.0 ** ((float (position - basePosition)) / 12.0)
-    System.Math.Round(frequency) |> int
+    baseFrequency * 2.0 ** ((float (position - basePosition)) / 12.0)
+    |> System.Math.Round
+    |> int
 
-
-let callArduino (serialPort: SerialPort) (note: int) (durationMs: int) = // Modified to take SerialPort object
+/// Sends a musical note to the specified serial port for a given duration.
+let sendNote (serialPort: SerialPort) (note: int) (durationMs: int) =
     try
-        AnsiConsole.WriteLine($"Sending note: {note} for {durationMs}ms")
+        AnsiConsole.MarkupLine($"Sending note: [blue]{note} Hz[/] for [green]{durationMs}ms[/]")
+
         serialPort.WriteLine(string note)
-        Thread.Sleep(durationMs)
-        AnsiConsole.WriteLine("Note sent successfully.")
+
+        Thread.Sleep(durationMs) // Delay between notes
+
     with ex ->
         AnsiConsole.MarkupLine($"[red]Error sending note: {ex.Message}[/]")
 
 
-// TODO Rename
+// TODO Add exception handling
+/// Plays a song by sending notes to Arduino through serial communication.
+let playSong serialPort baudRate beatDurationMs melody =
+
+    AnsiConsole.WriteLine("Playing music!")
+
+    use serialPort = new SerialPort(serialPort, baudRate)
+    serialPort.Open()
+
+    Thread.Sleep(1000) // Waits until arduino is done setting up -> TODO could be customizable
+
+    // Iterate through the melody (list of tuples: (note frequency, note duration in beats))
+    for (noteFreq, duration) in melody do
+        let noteDurationMs = int (beatDurationMs * duration)
+        sendNote serialPort noteFreq noteDurationMs
+
+    serialPort.Close()
+
+    AnsiConsole.WriteLine("Done!")
+
+
 // TODO Make it generic instead of only returning a string
-let promptUserInfo promptMessage (defaultValue: string) validationFun : string =
+let promptValue promptMessage (defaultValue: string) validationFun : string =
     AnsiConsole.Prompt(
         (new TextPrompt<string>(promptMessage)).DefaultValue(defaultValue).Validate(fun input -> validationFun input)
     )
@@ -33,10 +58,12 @@ let promptUserInfo promptMessage (defaultValue: string) validationFun : string =
 
 [<EntryPoint>]
 let main argv =
-    AnsiConsole.MarkupLine("[underline red]BPM![/]")
+    AnsiConsole.MarkupLine("[cyan]Arduino[/] Music Maker!")
 
+    // Arduino serial port
     let portName: string =
-        promptUserInfo "Arduino port" "/dev/ttyUSB0" (fun (p: string) ->
+        promptValue "Arduino port" "/dev/ttyUSB0" (fun (p: string) ->
+            // Checks for an available port
             try
                 use port = new SerialPort(p)
                 port.Open()
@@ -45,41 +72,69 @@ let main argv =
             with ex ->
                 ValidationResult.Error("[red]Couldn't connect to port[/]"))
 
+    // Baud rate
     let baudRate: int =
-        promptUserInfo "Baud rate" "9600" (fun baudStr ->
+        promptValue "Baud rate" "9600" (fun baudStr ->
+            // Checks for a positive integer
             match Int32.TryParse(baudStr) with
             | (true, baud) when baud > 0 -> ValidationResult.Success()
             | (_, _) -> ValidationResult.Error("[red]Baud rate must be a positive integer.[/]"))
         |> Int32.Parse
 
+    // Beats per minute
     let bpm =
-        promptUserInfo "BPM (Beats Per Minute)" "120" (fun bpmStr ->
+        promptValue "BPM (Beats Per Minute)" "120" (fun bpmStr ->
+            // Checks for a positive integer
             match Int32.TryParse(bpmStr) with
             | (true, bpm) when bpm > 0 -> ValidationResult.Success()
             | (_, _) -> ValidationResult.Error("[red]BPM must be a positive integer."))
 
+    // Duration of one beat in milliseconds
     let beatDurationMs = 60000.0 / (float bpm)
 
     AnsiConsole.MarkupLine($"[blue]Beat duration: {beatDurationMs}[/]")
 
+    // TODO make the user write their own
+    // Example song written by ChatGPT because i'm not a musician.
     let melody =
-        [ (getNoteFrequency 49, 1.0)
-          (getNoteFrequency 52, 0.5)
-          (getNoteFrequency 52, 0.5)
-          (getNoteFrequency 49, 1.0) ]
+        [ (getNoteFrequency 36, 1.0) // C3 - Quarter note
+          (getNoteFrequency 36, 1.0) // C3 - Quarter note
+          (getNoteFrequency 38, 0.5) // D3 - Eighth note
+          (getNoteFrequency 38, 0.5) // D3 - Eighth note
+          (getNoteFrequency 40, 1.0) // E3 - Quarter note
+          (getNoteFrequency 40, 1.0) // E3 - Quarter note
 
-    AnsiConsole.WriteLine("Playing melody...")
+          (getNoteFrequency 41, 0.5) // F3 - Eighth note
+          (getNoteFrequency 41, 0.5) // F3 - Eighth note
+          (getNoteFrequency 43, 0.5) // G3 - Eighth note
+          (getNoteFrequency 43, 0.5) // G3 - Eighth note
+          (getNoteFrequency 45, 1.0) // A3 - Quarter note
+          (getNoteFrequency 45, 1.0) // A3 - Quarter note
 
+          (getNoteFrequency 43, 0.5) // G3 - Eighth note
+          (getNoteFrequency 43, 0.5) // G3 - Eighth note
+          (getNoteFrequency 41, 0.5) // F3 - Eighth note
+          (getNoteFrequency 41, 0.5) // F3 - Eighth note
+          (getNoteFrequency 40, 1.0) // E3 - Quarter note
+          (getNoteFrequency 40, 1.0) // E3 - Quarter note
 
-    use serialPort = new SerialPort(portName, baudRate)
-    serialPort.Open()
-    Thread.Sleep(1000)
+          (getNoteFrequency 38, 0.5) // D3 - Eighth note
+          (getNoteFrequency 38, 0.5) // D3 - Eighth note
+          (getNoteFrequency 36, 1.0) // C3 - Quarter note
+          (getNoteFrequency 36, 1.0) // C3 - Quarter note
 
-    for (noteFreq, duration) in melody do
-        let noteDurationMs = int (beatDurationMs * duration)
-        callArduino serialPort noteFreq noteDurationMs
+          // Variation (more rhythm emphasis)
+          (getNoteFrequency 43, 0.25) // G3 - Sixteenth note
+          (getNoteFrequency 45, 0.25) // A3 - Sixteenth note
+          (getNoteFrequency 47, 0.25) // B3 - Sixteenth note
+          (getNoteFrequency 45, 0.25) // A3 - Sixteenth note
+          (getNoteFrequency 43, 0.5) // G3 - Eighth note
+          (getNoteFrequency 41, 0.5) // F3 - Eighth note
+          (getNoteFrequency 40, 1.0) // E3 - Quarter note
 
-    serialPort.Close()
+          (getNoteFrequency 38, 0.5) // D3 - Eighth note
+          (getNoteFrequency 36, 1.0) ] // C3 - Quarter note
 
-    AnsiConsole.WriteLine("Done!")
+    playSong portName baudRate beatDurationMs melody
+
     0
