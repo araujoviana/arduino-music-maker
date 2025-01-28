@@ -32,8 +32,6 @@ let sendNote (serialPort: SerialPort) (note: int) (durationMs: int) =
 /// Plays a song by sending notes to Arduino through serial communication.
 let playSong serialPort baudRate beatDurationMs melody =
 
-    AnsiConsole.WriteLine("Playing music!")
-
     use serialPort = new SerialPort(serialPort, baudRate)
     serialPort.Open()
 
@@ -45,8 +43,6 @@ let playSong serialPort baudRate beatDurationMs melody =
         sendNote serialPort noteFreq noteDurationMs
 
     serialPort.Close()
-
-    AnsiConsole.WriteLine("Done!")
 
 
 // TODO Make it generic instead of only returning a string
@@ -135,6 +131,9 @@ let main argv =
           (getNoteFrequency 38, 0.5) // D3 - Eighth note
           (getNoteFrequency 36, 1.0) ] // C3 - Quarter note
 
-    playSong portName baudRate beatDurationMs melody
+    AnsiConsole.Status()
+        .Start("Playing song...", fun ctx -> 
+            playSong portName baudRate beatDurationMs melody
+        )
 
     0
