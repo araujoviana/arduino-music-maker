@@ -1,44 +1,38 @@
 ﻿open System
+open System.IO
 open System.IO.Ports
+open Spectre.Console
+
+// TODO Rename
+// TODO Make it generic instead of only returning a string
+let promptUserInfo promptMessage (defaultValue: string) validationFun : string =
+    AnsiConsole.Prompt(
+        (new TextPrompt<string>(promptMessage)).DefaultValue(defaultValue).Validate(fun input -> validationFun input)
+    )
 
 [<EntryPoint>]
 let main argv =
-    let portName : string = "/dev/ttyUSB0"
-    let baudRate : int = 9600
+    AnsiConsole.MarkupLine("[underline red]Hello World![/]")
 
-    try
-        use serialPort = new SerialPort(portName, baudRate)
+    let port: string =
+        promptUserInfo "Arduino port" "/dev/ttyUSB0" (fun path ->
+            try
+                use port = new SerialPort(path)
+                port.Open()
+                port.Close()
 
-        serialPort.Open()
+                ValidationResult.Success()
 
-        printf "Serial port opened on %s at %d baud." portName baudRate
+            with ex ->
+                ValidationResult.Error($"[red]Invalid port path or Arduino is DISCONNECTED: {ex.Message}[/]"))
 
-        System.Threading.Thread.Sleep(2000)
-
-        printfn "Sending message to Arduino..." 
-
-        let messageToSend = "Hello Arduino from F#!\n"
-
-
-        serialPort.WriteLine(messageToSend)
-
-        printfn "Message sent: %s" messageToSend
-
-        printfn "Waiting for a response..."
-
-        let response = serialPort.ReadLine()
-        
-        printfn "Response from arduino: %s" response
-
-        serialPort.Close()
-        printfn "Serial port closed."
-
-        0
-
-    with
-    | (ex: exn) -> 
-        eprintf "Error: %s\n" ex.Message
-        1
-        
+    let baudRate  : int =
+        promptUserInfo "Baud rate" "9600" (fun baud ->
+            match Int32.TryParse(baud) with
+            | (true, _) -> ValidationResult.Success()
+            | (false, _) -> ValidationResult.Error("[red]Baud rate should be an integer.[/]"))
+        |> Int32.Parse
 
 
+
+    0
