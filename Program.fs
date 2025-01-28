@@ -30,11 +30,12 @@ let promptUserInfo promptMessage (defaultValue: string) validationFun : string =
         (new TextPrompt<string>(promptMessage)).DefaultValue(defaultValue).Validate(fun input -> validationFun input)
     )
 
+
 [<EntryPoint>]
 let main argv =
-    AnsiConsole.MarkupLine("[underline red]Hello World![/]")
+    AnsiConsole.MarkupLine("[underline red]BPM![/]")
 
-    let port: string =
+    let portName: string =
         promptUserInfo "Arduino port" "/dev/ttyUSB0" (fun (p: string) ->
             try
                 use port = new SerialPort(p)
@@ -45,18 +46,40 @@ let main argv =
                 ValidationResult.Error("[red]Couldn't connect to port[/]"))
 
     let baudRate: int =
-        promptUserInfo "Baud rate" "9600" (fun baud ->
-            match Int32.TryParse(baud) with
-            | (true, _) -> ValidationResult.Success()
-            | (false, _) -> ValidationResult.Error("[red]Baud rate must be an integer.[/]"))
+        promptUserInfo "Baud rate" "9600" (fun baudStr ->
+            match Int32.TryParse(baudStr) with
+            | (true, baud) when baud > 0 -> ValidationResult.Success()
+            | (_, _) -> ValidationResult.Error("[red]Baud rate must be a positive integer.[/]"))
         |> Int32.Parse
 
+    let bpm =
+        promptUserInfo "BPM (Beats Per Minute)" "120" (fun bpmStr ->
+            match Int32.TryParse(bpmStr) with
+            | (true, bpm) when bpm > 0 -> ValidationResult.Success()
+            | (_, _) -> ValidationResult.Error("[red]BPM must be a positive integer."))
 
-    let BuzzerPin: int =
-        promptUserInfo "Buzzer PIN [red](MUST be PWM)[/]" "9" (fun pin ->
-            match Int32.TryParse(pin) with
-            | (true, _) -> ValidationResult.Success()
-            | (false, _) -> ValidationResult.Error("[red]Buzzer pin must be an integer.[/]"))
-        |> Int32.Parse
+    let beatDurationMs = 60000.0 / (float bpm)
 
+    AnsiConsole.MarkupLine($"[blue]Beat duration: {beatDurationMs}[/]")
+
+    let melody =
+        [ (getNoteFrequency 49, 1.0)
+          (getNoteFrequency 52, 0.5)
+          (getNoteFrequency 52, 0.5)
+          (getNoteFrequency 49, 1.0) ]
+
+    AnsiConsole.WriteLine("Playing melody...")
+
+
+    use serialPort = new SerialPort(portName, baudRate)
+    serialPort.Open()
+    Thread.Sleep(1000)
+
+    for (noteFreq, duration) in melody do
+        let noteDurationMs = int (beatDurationMs * duration)
+        callArduino serialPort noteFreq noteDurationMs
+
+    serialPort.Close()
+
+    AnsiConsole.WriteLine("Done!")
     0
