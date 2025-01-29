@@ -6,6 +6,13 @@ open System.IO.Ports
 open System.Threading
 open Spectre.Console
 
+
+// TODO Make it generic instead of only returning a string
+let promptValue promptMessage (defaultValue: string) validationFun : string =
+    AnsiConsole.Prompt(
+        (new TextPrompt<string>(promptMessage)).DefaultValue(defaultValue).Validate(fun input -> validationFun input)
+    )
+
 // TODO add boundaries
 let getNoteFrequency position =
     let baseFrequency: float = 440.0 // frequency for the base note (A4)
@@ -49,7 +56,35 @@ let playSong serialPort baudRate bpm melody =
 
     serialPort.Close()
 
-let writeSong =
+
+let rec writeSong song =
+    let note = promptValue "[green3_1]Note (1-128):[/]" "49" (fun note ->
+        // Check for positive integer
+        match Int32.TryParse(note) with
+        | (true, note) when note > 0 && note <= 128 -> ValidationResult.Success()
+        | (false, _) when note = "exit" -> ValidationResult.Success() 
+        | _ -> ValidationResult.Error("[red]Note must be between 1 and 128.[/]"))
+
+    if note = "exit" then
+        song
+    else
+        let duration = promptValue "[orange3]Duration:[/]" "1" (fun duration ->
+            // Check for positive integer
+            match Double.TryParse(duration) with
+            | (true, duration) when duration > 0.0 && duration < 1000.0 -> ValidationResult.Success()
+            | (false, _) when duration = "exit" -> ValidationResult.Success() 
+            | _ -> ValidationResult.Error("[red]Duration must be a positive integer.[/]"))
+
+        if duration = "exit" then
+            song
+        else
+            let updatedSong = (int note |> getNoteFrequency, float duration) :: song
+            writeSong updatedSong
+
+
+
+
+let sampleSong =
     // TODO make the user write their own
     // Example song written by ChatGPT because i'm not a musician.
     [ (getNoteFrequency 36, 1.0) // C3 - Quarter note
@@ -91,11 +126,6 @@ let writeSong =
       (getNoteFrequency 36, 1.0) ] // C3 - Quarter note
 
 
-// TODO Make it generic instead of only returning a string
-let promptValue promptMessage (defaultValue: string) validationFun : string =
-    AnsiConsole.Prompt(
-        (new TextPrompt<string>(promptMessage)).DefaultValue(defaultValue).Validate(fun input -> validationFun input)
-    )
 
 
 let setConnectionConfig =
@@ -134,10 +164,14 @@ let setBPM =
 
 [<EntryPoint>]
 let main argv =
-    AnsiConsole.MarkupLine("[cyan]Arduino[/] Music Maker!")
+    // TODO Make this text appear at the beginning since the others have priority?
+    // AnsiConsole.MarkupLine("[cyan]Arduino[/] Music Maker!")
+
     let initialPortName, initialBaudRate = setConnectionConfig
     let initialBPM = setBPM
 
-    playSong initialPortName initialBaudRate initialBPM writeSong
+    AnsiConsole.MarkupLine("Write [underline red]exit[/] anywhere to finish.")
+    let song = writeSong [] |> List.rev
+    playSong initialPortName initialBaudRate initialBPM song
 
     0
