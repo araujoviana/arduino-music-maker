@@ -1,6 +1,7 @@
 ﻿open System
 open System.IO.Ports
 open System.Threading
+open System.Runtime.InteropServices
 open Spectre.Console
 
 /// <summary>
@@ -146,9 +147,15 @@ let promptValue promptMessage (defaultValue: string) validationFun : string =
 /// </summary>
 /// <returns>A tuple containing the port name and baud rate.</returns>
 let setConnectionConfig =
+    
+    let defaultPort = 
+        match RuntimeInformation.IsOSPlatform(OSPlatform.Windows) with
+        | true -> "COM0"
+        | _ -> "/dev/ttyUSB0"
+
     // Arduino serial port
     let portName: string =
-        promptValue "Arduino port" "/dev/ttyUSB0" (fun (p: string) ->
+        promptValue "Arduino port" defaultPort  (fun (p: string) ->
             // Checks for an available port
             try
                 use port = new SerialPort(p)
@@ -193,7 +200,7 @@ let composeSong () =
     while note <> "exit" do
         note <-
             promptValue "[green3_1]Note (e.g., B1, D#3):[/]" "A4" (fun note ->
-                let position = note.Trim().ToUpper() |> getNotePosition 
+                let position = note.Trim().ToUpper() |> getNotePosition
 
                 if position <> -1 then ValidationResult.Success()
                 elif note = "exit" then ValidationResult.Success()
@@ -254,7 +261,7 @@ let playSong portName baudRate bpm melody =
 
 
 [<EntryPoint>]
-let main argv =
+let rec main argv =
     let portName, baudRate = setConnectionConfig
     let bpm = setBPM
 
@@ -264,4 +271,15 @@ let main argv =
 
     AnsiConsole.Status().Start("Playing song...", fun ctx -> playSong portName baudRate bpm song)
 
-    0
+    if
+        AnsiConsole.Prompt(
+            TextPrompt<bool>("Run again?")
+                .AddChoice(true)
+                .AddChoice(false)
+                .DefaultValue(true)
+                .WithConverter(fun choice -> if choice then "y" else "n")
+        )
+    then
+        main argv
+    else
+        0
