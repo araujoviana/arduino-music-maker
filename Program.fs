@@ -58,75 +58,30 @@ let playSong serialPort baudRate bpm melody =
 
 
 let rec writeSong song =
-    let note = promptValue "[green3_1]Note (1-128):[/]" "49" (fun note ->
-        // Check for positive integer
-        match Int32.TryParse(note) with
-        | (true, note) when note > 0 && note <= 128 -> ValidationResult.Success()
-        | (false, _) when note = "exit" -> ValidationResult.Success() 
-        | _ -> ValidationResult.Error("[red]Note must be between 1 and 128.[/]"))
+    let note =
+        promptValue "[green3_1]Note (1-128):[/]" "49" (fun note ->
+            // Check for positive integer
+            match Int32.TryParse(note) with
+            | (true, note) when note > 0 && note <= 128 -> ValidationResult.Success()
+            | (false, _) when note = "exit" -> ValidationResult.Success()
+            | _ -> ValidationResult.Error("[red]Note must be between 1 and 128.[/]"))
 
     if note = "exit" then
         song
     else
-        let duration = promptValue "[orange3]Duration:[/]" "1" (fun duration ->
-            // Check for positive integer
-            match Double.TryParse(duration) with
-            | (true, duration) when duration > 0.0 && duration < 1000.0 -> ValidationResult.Success()
-            | (false, _) when duration = "exit" -> ValidationResult.Success() 
-            | _ -> ValidationResult.Error("[red]Duration must be a positive integer.[/]"))
+        let duration =
+            promptValue "[orange3]Beat duration:[/]" "1" (fun duration ->
+                // Check for positive integer
+                match Double.TryParse(duration) with
+                | (true, duration) when duration > 0.0 && duration < 1000.0 -> ValidationResult.Success()
+                | (false, _) when duration = "exit" -> ValidationResult.Success()
+                | _ -> ValidationResult.Error("[red]Duration must be a positive integer.[/]"))
 
         if duration = "exit" then
             song
         else
             let updatedSong = (int note |> getNoteFrequency, float duration) :: song
             writeSong updatedSong
-
-
-
-
-let sampleSong =
-    // TODO make the user write their own
-    // Example song written by ChatGPT because i'm not a musician.
-    [ (getNoteFrequency 36, 1.0) // C3 - Quarter note
-      (getNoteFrequency 36, 1.0) // C3 - Quarter note
-      (getNoteFrequency 38, 0.5) // D3 - Eighth note
-      (getNoteFrequency 38, 0.5) // D3 - Eighth note
-      (getNoteFrequency 40, 1.0) // E3 - Quarter note
-      (getNoteFrequency 40, 1.0) // E3 - Quarter note
-
-      (getNoteFrequency 41, 0.5) // F3 - Eighth note
-      (getNoteFrequency 41, 0.5) // F3 - Eighth note
-      (getNoteFrequency 43, 0.5) // G3 - Eighth note
-      (getNoteFrequency 43, 0.5) // G3 - Eighth note
-      (getNoteFrequency 45, 1.0) // A3 - Quarter note
-      (getNoteFrequency 45, 1.0) // A3 - Quarter note
-
-      (getNoteFrequency 43, 0.5) // G3 - Eighth note
-      (getNoteFrequency 43, 0.5) // G3 - Eighth note
-      (getNoteFrequency 41, 0.5) // F3 - Eighth note
-      (getNoteFrequency 41, 0.5) // F3 - Eighth note
-      (getNoteFrequency 40, 1.0) // E3 - Quarter note
-      (getNoteFrequency 40, 1.0) // E3 - Quarter note
-
-      (getNoteFrequency 38, 0.5) // D3 - Eighth note
-      (getNoteFrequency 38, 0.5) // D3 - Eighth note
-      (getNoteFrequency 36, 1.0) // C3 - Quarter note
-      (getNoteFrequency 36, 1.0) // C3 - Quarter note
-
-      // Variation (more rhythm emphasis)
-      (getNoteFrequency 43, 0.25) // G3 - Sixteenth note
-      (getNoteFrequency 45, 0.25) // A3 - Sixteenth note
-      (getNoteFrequency 47, 0.25) // B3 - Sixteenth note
-      (getNoteFrequency 45, 0.25) // A3 - Sixteenth note
-      (getNoteFrequency 43, 0.5) // G3 - Eighth note
-      (getNoteFrequency 41, 0.5) // F3 - Eighth note
-      (getNoteFrequency 40, 1.0) // E3 - Quarter note
-
-      (getNoteFrequency 38, 0.5) // D3 - Eighth note
-      (getNoteFrequency 36, 1.0) ] // C3 - Quarter note
-
-
-
 
 let setConnectionConfig =
 
@@ -167,11 +122,12 @@ let main argv =
     // TODO Make this text appear at the beginning since the others have priority?
     // AnsiConsole.MarkupLine("[cyan]Arduino[/] Music Maker!")
 
-    let initialPortName, initialBaudRate = setConnectionConfig
-    let initialBPM = setBPM
+    let portName, baudRate = setConnectionConfig
+    let bpm = setBPM
 
     AnsiConsole.MarkupLine("Write [underline red]exit[/] anywhere to finish.")
     let song = writeSong [] |> List.rev
-    playSong initialPortName initialBaudRate initialBPM song
+
+    AnsiConsole.Status().Start("Playing song...", fun ctx -> playSong portName baudRate bpm sampleSong)
 
     0
