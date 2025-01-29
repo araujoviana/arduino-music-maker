@@ -1,11 +1,11 @@
-﻿// TODO Convert docstrings to XML documentation
-
-open System
+﻿open System
 open System.IO.Ports
 open System.Threading
 open Spectre.Console
 
-// TODO Refactor ?
+/// <summary>
+/// A map associating note names with their corresponding MIDI positions.
+/// </summary>
 let noteMap =
     [ "C0", 12
       "C#0", 13
@@ -106,12 +106,21 @@ let noteMap =
       "C8", 108 ]
     |> Map.ofList
 
-// Function to get the position of a note
+/// <summary>
+/// Gets the MIDI position of a note from the noteMap.
+/// </summary>
+/// <param name="note">The name of the note.</param>
+/// <returns>The MIDI position of the note, or -1 if the note is invalid.</returns>
 let getNotePosition note =
     match Map.tryFind note noteMap with
     | Some pos -> pos
     | None -> -1 // Invalid note
 
+/// <summary>
+/// Calculates the frequency of a note given its MIDI position.
+/// </summary>
+/// <param name="position">The MIDI position of the note.</param>
+/// <returns>The frequency of the note.</returns>
 let getNoteFrequency position =
     let baseFrequency: float = 440.0 // frequency for the base note (A4)
     let basePosition: int = 69 // MIDI position for the base note
@@ -120,13 +129,23 @@ let getNoteFrequency position =
     |> System.Math.Round
     |> int
 
+/// <summary>
+/// Prompts the user for a value with validation.
+/// </summary>
+/// <param name="promptMessage">The prompt message.</param>
+/// <param name="defaultValue">The default value.</param>
+/// <param name="validationFun">The validation function.</param>
+/// <returns>The validated user input.</returns>
 let promptValue promptMessage (defaultValue: string) validationFun : string =
     AnsiConsole.Prompt(
         (new TextPrompt<string>(promptMessage)).DefaultValue(defaultValue).Validate(fun input -> validationFun input)
     )
 
+/// <summary>
+/// Configures the serial port connection.
+/// </summary>
+/// <returns>A tuple containing the port name and baud rate.</returns>
 let setConnectionConfig =
-
     // Arduino serial port
     let portName: string =
         promptValue "Arduino port" "/dev/ttyUSB0" (fun (p: string) ->
@@ -137,7 +156,7 @@ let setConnectionConfig =
                 port.Close()
                 ValidationResult.Success()
             with ex ->
-                ValidationResult.Error("[red]Couldn't connect to port[/]"))
+                ValidationResult.Error($"[red]Couldn't connect to port: {ex.Message}[/]") )
 
     // Baud rate
     let baudRate: int =
@@ -150,90 +169,100 @@ let setConnectionConfig =
 
     portName, baudRate
 
+/// <summary>
+/// Prompts the user for the BPM (Beats Per Minute).
+/// </summary>
+/// <returns>The BPM value.</returns>
 let setBPM =
     promptValue "BPM (Beats Per Minute)" "120" (fun bpmStr ->
         // Checks for a positive integer
         match Int32.TryParse(bpmStr) with
         | (true, bpm) when bpm > 0 -> ValidationResult.Success()
-        | (_, _) -> ValidationResult.Error("[red]BPM must be a positive integer."))
+        | (_, _) -> ValidationResult.Error("[red]BPM must be a positive integer.[/]"))
+    |> Int32.Parse
 
-let rec composeSong song =
-    let note =
-        promptValue "[green3_1]Note (e.g., B1, D#3):[/]" "A4" (fun note ->
-            // Check for valid note
-            let position = getNotePosition note
 
-            if position <> -1 then ValidationResult.Success()
-            elif note = "exit" then ValidationResult.Success()
-            else ValidationResult.Error("[red]Invalid note name.[/]"))
+/// <summary>
+/// Composes a song by prompting the user for notes and durations.  Uses a ResizeArray for efficiency.
+/// </summary>
+/// <returns>A list of tuples representing the song's melody (frequency, duration).</returns>
+let composeSong () =
+    let song = ResizeArray()
+    let mutable note = ""
+    while note <> "exit" do
+        note <- 
+            promptValue "[green3_1]Note (e.g., B1, D#3):[/]" "A4" (fun note ->
+                let position = getNotePosition note
+                if position <> -1 then ValidationResult.Success()
+                elif note = "exit" then ValidationResult.Success()
+                else ValidationResult.Error("[red]Invalid note name.[/]"))
 
-    if note = "exit" then
-        song
-    else
-        let duration =
-            promptValue "[orange3]Beat duration:[/]" "1" (fun duration ->
-                // Check for positive duration
-                match Double.TryParse(duration) with
-                | (true, duration) when duration > 0.0 && duration < 1000.0 -> ValidationResult.Success()
-                | (false, _) when duration = "exit" -> ValidationResult.Success()
-                | _ -> ValidationResult.Error("[red]Duration must be a positive number.[/]"))
+        if note <> "exit" then
+            let duration = 
+                promptValue "[orange3]Beat duration:[/]" "1" (fun duration ->
+                    match Double.TryParse(duration) with
+                    | (true, duration) when duration > 0.0 && duration < 1000.0 -> ValidationResult.Success()
+                    | (false, _) when duration = "exit" -> ValidationResult.Success()
+                    | _ -> ValidationResult.Error("[red]Duration must be a positive number.[/]"))
 
-        if duration = "exit" then
-            song
-        else
-            let position = getNotePosition note
-            let updatedSong = (position |> getNoteFrequency, float duration) :: song
-            composeSong updatedSong
+            if duration <> "exit" then
+                let position = getNotePosition note
+                song.Add((position |> getNoteFrequency, float duration))
 
+    song |> Seq.toList
+
+
+/// <summary>
 /// Sends a musical note to the specified serial port for a given duration.
+/// </summary>
+/// <param name="serialPort">The serial port.</param>
+/// <param name="note">The note frequency in Hz.</param>
+/// <param name="durationMs">The note duration in milliseconds.</param>
 let sendNote (serialPort: SerialPort) (note: int) (durationMs: int) =
     try
         AnsiConsole.MarkupLine($"Sending note: [blue]{note} Hz[/] for [green]{durationMs}ms[/]")
-
-        serialPort.WriteLine(string note)
-
-        Thread.Sleep(durationMs) // Delay between notes
-
+        //  IMPORTANT:  This line needs to be corrected to actually send data to the Arduino.
+        //  The current code sends the frequency as a string, which is likely incorrect.
+        //  You need to determine the correct format for your Arduino code.  It might involve
+        //  sending a byte representing the note or some other encoding.
+        serialPort.WriteLine(string note)  //This needs to be replaced with appropriate Arduino communication protocol
+        Thread.Sleep(durationMs)
     with ex ->
         AnsiConsole.MarkupLine($"[red]Error sending note: {ex.Message}[/]")
 
 
-// TODO Add exception handling
+/// <summary>
 /// Plays a song by sending notes to Arduino through serial communication.
-let playSong serialPort baudRate bpm melody =
-
-    // Duration of one beat in milliseconds
+/// </summary>
+/// <param name="portName">The serial port name.</param>
+/// <param name="baudRate">The baud rate.</param>
+/// <param name="bpm">The BPM (Beats Per Minute).</param>
+/// <param name="melody">The song melody as a list of (frequency, duration) tuples.</param>
+let playSong portName baudRate bpm melody =
     let beatDurationMs = 60000.0 / (float bpm)
+    AnsiConsole.MarkupLine($"[blue]Beat duration: {beatDurationMs} ms[/]")
 
-    AnsiConsole.MarkupLine($"[blue]Beat duration: {beatDurationMs}[/]")
+    try
+        use serialPort = new SerialPort(portName, baudRate)
+        serialPort.Open()
+        Thread.Sleep(2000) // Waits until Arduino is done setting up
 
-    use serialPort = new SerialPort(serialPort, baudRate)
-    serialPort.Open()
+        for (noteFreq, duration) in melody do
+            let noteDurationMs = int (beatDurationMs * duration)
+            sendNote serialPort noteFreq noteDurationMs
 
-    Thread.Sleep(1000) // Waits until arduino is done setting up -> TODO could be customizable
-
-    // Iterate through the melody (list of tuples: (note frequency, note duration in beats))
-    for (noteFreq, duration) in melody do
-        let noteDurationMs = int (beatDurationMs * duration)
-        sendNote serialPort noteFreq noteDurationMs
-
-    serialPort.Close()
-
-
-
+    with ex ->
+        AnsiConsole.MarkupLine($"[red]Error during playback: {ex.Message}[/]")
 
 
 [<EntryPoint>]
 let main argv =
-    // TODO Make this text appear at the beginning since the others have priority?
-    // AnsiConsole.MarkupLine("[cyan]Arduino[/] Music Maker!")
-
     let portName, baudRate = setConnectionConfig
     let bpm = setBPM
 
     AnsiConsole.MarkupLine("[bold green]Compose your song![/]")
     AnsiConsole.MarkupLine("Write [underline red]exit[/] anywhere to finish.")
-    let song = composeSong [] |> List.rev
+    let song = composeSong ()
 
     AnsiConsole.Status().Start("Playing song...", fun ctx -> playSong portName baudRate bpm song)
 
