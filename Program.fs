@@ -156,7 +156,7 @@ let setConnectionConfig =
                 port.Close()
                 ValidationResult.Success()
             with ex ->
-                ValidationResult.Error($"[red]Couldn't connect to port: {ex.Message}[/]") )
+                ValidationResult.Error($"[red]Couldn't connect to port: {ex.Message}[/]"))
 
     // Baud rate
     let baudRate: int =
@@ -189,16 +189,18 @@ let setBPM =
 let composeSong () =
     let song = ResizeArray()
     let mutable note = ""
+
     while note <> "exit" do
-        note <- 
+        note <-
             promptValue "[green3_1]Note (e.g., B1, D#3):[/]" "A4" (fun note ->
-                let position = getNotePosition note
+                let position = note.Trim().ToUpper() |> getNotePosition 
+
                 if position <> -1 then ValidationResult.Success()
                 elif note = "exit" then ValidationResult.Success()
                 else ValidationResult.Error("[red]Invalid note name.[/]"))
 
         if note <> "exit" then
-            let duration = 
+            let duration =
                 promptValue "[orange3]Beat duration:[/]" "1" (fun duration ->
                     match Double.TryParse(duration) with
                     | (true, duration) when duration > 0.0 && duration < 1000.0 -> ValidationResult.Success()
@@ -221,7 +223,7 @@ let composeSong () =
 let sendNote (serialPort: SerialPort) (note: int) (durationMs: int) =
     try
         AnsiConsole.MarkupLine($"Sending note: [blue]{note} Hz[/] for [green]{durationMs}ms[/]")
-        serialPort.WriteLine(string note) 
+        serialPort.WriteLine(string note)
         Thread.Sleep(durationMs)
     with ex ->
         AnsiConsole.MarkupLine($"[red]Error sending note: {ex.Message}[/]")
