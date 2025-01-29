@@ -114,7 +114,7 @@ let noteMap =
 let getNotePosition note =
     match Map.tryFind note noteMap with
     | Some pos -> pos
-    | None -> -1 // Invalid note
+    | None -> -1
 
 /// <summary>
 /// Calculates the frequency of a note given its MIDI position.
@@ -183,7 +183,7 @@ let setBPM =
 
 
 /// <summary>
-/// Composes a song by prompting the user for notes and durations.  Uses a ResizeArray for efficiency.
+/// Composes a song by prompting the user for notes and durations.
 /// </summary>
 /// <returns>A list of tuples representing the song's melody (frequency, duration).</returns>
 let composeSong () =
@@ -221,11 +221,7 @@ let composeSong () =
 let sendNote (serialPort: SerialPort) (note: int) (durationMs: int) =
     try
         AnsiConsole.MarkupLine($"Sending note: [blue]{note} Hz[/] for [green]{durationMs}ms[/]")
-        //  IMPORTANT:  This line needs to be corrected to actually send data to the Arduino.
-        //  The current code sends the frequency as a string, which is likely incorrect.
-        //  You need to determine the correct format for your Arduino code.  It might involve
-        //  sending a byte representing the note or some other encoding.
-        serialPort.WriteLine(string note)  //This needs to be replaced with appropriate Arduino communication protocol
+        serialPort.WriteLine(string note) 
         Thread.Sleep(durationMs)
     with ex ->
         AnsiConsole.MarkupLine($"[red]Error sending note: {ex.Message}[/]")
